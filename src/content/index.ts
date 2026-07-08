@@ -6,6 +6,7 @@ let currentUrl = '';
 let activeOverlay: HTMLElement | null = null;
 let lastClickedJobUrl = '';
 const sessionTrackedUrls = new Set<string>();
+const logoUrl = chrome.runtime.getURL('icons/icon48.png');
 
 // Periodic observer to detect URL changes and bind apply button listeners
 function initUrlObserver() {
@@ -340,7 +341,7 @@ function renderTrackedState(card: HTMLElement, details: ScrapedJobDetails, app: 
   card.innerHTML = `
     <div class="jobflow-header">
       <div class="jobflow-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <img src="${logoUrl}" style="width: 14px; height: 14px; object-fit: contain; margin-right: 4px;" alt="Logo" />
         JobFlow Tracker
       </div>
       <button class="jobflow-close">&times;</button>
@@ -391,7 +392,7 @@ function saveAutomatically(card: HTMLElement, details: ScrapedJobDetails) {
   card.innerHTML = `
     <div class="jobflow-header">
       <div class="jobflow-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        <img src="${logoUrl}" style="width: 14px; height: 14px; object-fit: contain; margin-right: 4px;" alt="Logo" />
         JobFlow Tracker
       </div>
       <button class="jobflow-close">&times;</button>
@@ -415,7 +416,10 @@ function saveAutomatically(card: HTMLElement, details: ScrapedJobDetails) {
         console.error('JobFlow save error:', chrome.runtime.lastError);
         card.innerHTML = `
           <div class="jobflow-header">
-            <div class="jobflow-title">JobFlow Tracker</div>
+            <div class="jobflow-title">
+              <img src="${logoUrl}" style="width: 14px; height: 14px; object-fit: contain; margin-right: 4px;" alt="Logo" />
+              JobFlow Tracker
+            </div>
             <button class="jobflow-close">&times;</button>
           </div>
           <div style="text-align: center; padding: 12px 0; color: #ef4444; font-size: 11px;">
@@ -429,7 +433,10 @@ function saveAutomatically(card: HTMLElement, details: ScrapedJobDetails) {
       if (response && response.success) {
         card.innerHTML = `
           <div class="jobflow-header">
-            <div class="jobflow-title">JobFlow Tracker</div>
+            <div class="jobflow-title">
+              <img src="${logoUrl}" style="width: 14px; height: 14px; object-fit: contain; margin-right: 4px;" alt="Logo" />
+              JobFlow Tracker
+            </div>
             <button class="jobflow-close">&times;</button>
           </div>
           <div style="text-align: center; padding: 12px 0;">
@@ -446,7 +453,10 @@ function saveAutomatically(card: HTMLElement, details: ScrapedJobDetails) {
       } else {
         card.innerHTML = `
           <div class="jobflow-header">
-            <div class="jobflow-title">JobFlow Tracker</div>
+            <div class="jobflow-title">
+              <img src="${logoUrl}" style="width: 14px; height: 14px; object-fit: contain; margin-right: 4px;" alt="Logo" />
+              JobFlow Tracker
+            </div>
             <button class="jobflow-close">&times;</button>
           </div>
           <div style="text-align: center; padding: 12px 0; color: #ef4444; font-size: 11px;">

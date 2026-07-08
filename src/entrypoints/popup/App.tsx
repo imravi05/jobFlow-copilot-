@@ -99,9 +99,7 @@ export default function App() {
           {/* Header */}
           <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shadow-sm select-none">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
-                <Briefcase size={18} />
-              </div>
+              <img src="/icons/icon48.png" className="w-5 h-5 object-contain" alt="JobFlow Logo" />
               <span className="font-bold text-base tracking-tight bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
                 JobFlow
               </span>
@@ -173,9 +171,7 @@ export default function App() {
           <div>
             {/* Logo */}
             <div className="px-6 py-6 flex items-center gap-3 border-b border-border">
-              <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                <Briefcase size={22} className="stroke-[2.5px]" />
-              </div>
+              <img src="/icons/icon128.png" className="w-8 h-8 object-contain" alt="JobFlow Logo" />
               <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
                 JobFlow
               </span>
