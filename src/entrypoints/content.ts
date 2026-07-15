@@ -1,15 +1,26 @@
 import { defineContentScript } from 'wxt/sandbox';
 import { LinkedInScraper } from '@/services/scraper/LinkedInScraper';
-import { ScrapedJobDetails } from '@/services/scraper/types';
+import { IndeedScraper } from '@/services/scraper/IndeedScraper';
+import { ScrapedJobDetails, JobPortalScraper } from '@/services/scraper/types';
 
 export default defineContentScript({
   matches: [
     'https://www.linkedin.com/jobs/*',
-    'https://www.linkedin.com/jobs/view/*'
+    'https://www.linkedin.com/jobs/view/*',
+    'https://*.indeed.com/*',
+    'https://indeed.com/*'
   ],
   runAt: 'document_end',
   main() {
-    const scraper = new LinkedInScraper();
+    const scrapers: JobPortalScraper[] = [
+      new LinkedInScraper(),
+      new IndeedScraper()
+    ];
+
+    function getActiveScraper(): JobPortalScraper | undefined {
+      return scrapers.find(s => s.isSupported(window.location.href));
+    }
+
     let currentUrl = '';
     let activeOverlay: HTMLElement | null = null;
     const sessionTrackedUrls = new Set<string>();
@@ -28,16 +39,17 @@ export default defineContentScript({
         }
 
         // Attach listeners to newly rendered apply buttons
-        if (scraper.isSupported(window.location.href)) {
-          bindApplyButtonListeners();
-          bindSubmitButtonListener();
-          checkEasyApplySuccess();
+        const activeScraper = getActiveScraper();
+        if (activeScraper) {
+          bindApplyButtonListeners(activeScraper);
+          bindSubmitButtonListener(activeScraper);
+          checkEasyApplySuccess(activeScraper);
         }
       }, 1000);
     }
 
-    // Find LinkedIn Apply and Easy Apply buttons and attach click triggers
-    function bindApplyButtonListeners() {
+    // Find Apply and Easy Apply buttons and attach click triggers
+    function bindApplyButtonListeners(activeScraper: JobPortalScraper) {
       const applyButtons = findApplyButtons();
       applyButtons.forEach(button => {
         if (button.getAttribute('data-jobflow-listened') === 'true') {
@@ -46,17 +58,20 @@ export default defineContentScript({
         button.setAttribute('data-jobflow-listened', 'true');
         
         const text = button.textContent?.trim().toLowerCase() || '';
-        const isEasyApply = text.includes('easy apply');
+        const isEasyApply = text.includes('easy apply') || 
+                            button.classList.contains('indeed-apply-button') || 
+                            button.id.includes('indeedApplyButton') ||
+                            button.getAttribute('data-testid') === 'indeed-apply-button';
 
         if (isEasyApply) {
           // For Easy Apply, we do NOT save immediately on clicking "Easy Apply".
           // We will monitor for the final submit or success state.
-          console.log('JobFlow: Easy Apply button detected. Monitoring modal...');
+          console.log('JobFlow: Easy Apply / Inline Apply button detected. Monitoring modal...');
         } else {
           // For external Apply, save immediately when clicked
           button.addEventListener('click', () => {
             console.log('JobFlow: External Apply button clicked. Saving...');
-            triggerSaveWorkflow();
+            triggerSaveWorkflow(activeScraper);
           });
         }
       });
@@ -65,11 +80,21 @@ export default defineContentScript({
     function findApplyButtons(): HTMLElement[] {
       const buttons: HTMLElement[] = [];
       const selectors = [
+        // LinkedIn
         '.jobs-apply-button',
         '.jobs-s-apply button',
         'button.jobs-apply-button--top-card',
         '[data-control-name="job_apply"]',
-        '.jobs-apply-button--top-card button'
+        '.jobs-apply-button--top-card button',
+        // Indeed
+        'a.indeed-apply-button',
+        'button[id*="indeedApplyButton"]',
+        '#indeedApplyButton',
+        '[data-testid="indeed-apply-button"]',
+        '[data-testid="jobsearch-ViewJobButtons-container"] button',
+        '[data-testid="jobsearch-ViewJobButtons-container"] a',
+        '#applyButtonLinkContainer a',
+        '.indeed-apply-button'
       ];
 
       selectors.forEach(sel => {
@@ -80,68 +105,101 @@ export default defineContentScript({
         });
       });
 
-      // Fallback: check all buttons on page for "apply" text
-      document.querySelectorAll('button').forEach(btn => {
+      // Fallback: check all buttons and links on page for "apply" text
+      document.querySelectorAll('button, a').forEach(btn => {
         const text = btn.textContent?.trim().toLowerCase() || '';
-        if ((text === 'apply' || text === 'easy apply' || text.includes('apply now')) && !buttons.includes(btn)) {
-          buttons.push(btn);
+        const matchesText = text === 'apply' || 
+                            text === 'easy apply' || 
+                            text.includes('apply now') || 
+                            text.includes('apply on company site');
+        if (matchesText && !buttons.includes(btn as HTMLElement)) {
+          buttons.push(btn as HTMLElement);
         }
       });
 
       return buttons;
     }
 
-    function bindSubmitButtonListener() {
+    function bindSubmitButtonListener(activeScraper: JobPortalScraper) {
       const submitButtons = document.querySelectorAll('button');
       submitButtons.forEach(button => {
         const text = button.textContent?.trim().toLowerCase() || '';
         const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
         
-        if ((text === 'submit application' || ariaLabel === 'submit application') && 
-            button.getAttribute('data-jobflow-listened') !== 'true') {
-          
+        const isSubmit = text === 'submit application' || 
+                         text === 'submit your application' ||
+                         text === 'submit' || 
+                         ariaLabel === 'submit application' ||
+                         ariaLabel === 'submit';
+
+        if (isSubmit && button.getAttribute('data-jobflow-listened') !== 'true') {
           button.setAttribute('data-jobflow-listened', 'true');
           button.addEventListener('click', () => {
             console.log('JobFlow: Submit application button clicked! Saving...');
-            triggerSaveWorkflow();
+            triggerSaveWorkflow(activeScraper);
           });
         }
       });
     }
 
-    function checkEasyApplySuccess() {
-      const modal = document.querySelector('.jobs-easy-apply-modal, [role="dialog"], .artdeco-modal');
-      if (!modal) return;
-
-      const modalText = modal.textContent || '';
+    function checkEasyApplySuccess(activeScraper: JobPortalScraper) {
       const successPhrases = [
         'application sent',
         'application submitted',
         'your application was sent',
-        'successfully applied'
+        'successfully applied',
+        'your application has been submitted'
       ];
 
-      const hasSuccess = successPhrases.some(phrase => modalText.toLowerCase().includes(phrase));
-      if (hasSuccess) {
-        const currentJobUrl = window.location.href;
-        if (!sessionTrackedUrls.has(currentJobUrl)) {
-          sessionTrackedUrls.add(currentJobUrl);
-          console.log('JobFlow: Detected Easy Apply success screen! Saving...');
-          triggerSaveWorkflow();
+      // 1. Check parent window modal
+      const modal = document.querySelector('.jobs-easy-apply-modal, [role="dialog"], .artdeco-modal, .ia-BaseModal, [id*="indeed-ia"]');
+      if (modal) {
+        const modalText = modal.textContent || '';
+        const hasSuccess = successPhrases.some(phrase => modalText.toLowerCase().includes(phrase));
+        if (hasSuccess) {
+          const currentJobUrl = window.location.href;
+          if (!sessionTrackedUrls.has(currentJobUrl)) {
+            sessionTrackedUrls.add(currentJobUrl);
+            console.log('JobFlow: Detected Easy Apply success screen! Saving...');
+            triggerSaveWorkflow(activeScraper);
+          }
+          return;
         }
       }
+
+      // 2. Check same-origin iframes (common on Indeed)
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => {
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (iframeDoc) {
+            const iframeText = iframeDoc.body.textContent || '';
+            const hasSuccess = successPhrases.some(phrase => iframeText.toLowerCase().includes(phrase));
+            if (hasSuccess) {
+              const currentJobUrl = window.location.href;
+              if (!sessionTrackedUrls.has(currentJobUrl)) {
+                sessionTrackedUrls.add(currentJobUrl);
+                console.log('JobFlow: Detected Easy Apply success screen in iframe! Saving...');
+                triggerSaveWorkflow(activeScraper);
+              }
+            }
+          }
+        } catch (e) {
+          // Cross-origin iframe security block, ignore
+        }
+      });
     }
 
     // Scrape and display confirmation overlay
-    async function triggerSaveWorkflow() {
-      if (!scraper.isSupported(window.location.href)) {
+    async function triggerSaveWorkflow(activeScraper: JobPortalScraper) {
+      if (!activeScraper.isSupported(window.location.href)) {
         return;
       }
 
       // Brief delay to allow DOM transition (especially for dynamic modal triggers)
       setTimeout(async () => {
         try {
-          const details = await scraper.extractJobDetails();
+          const details = await activeScraper.extractJobDetails();
           if (!details || !details.jobUrl) {
             console.warn('JobFlow: Scraper returned incomplete details.');
             return;
@@ -150,7 +208,7 @@ export default defineContentScript({
             details.title = 'Job Application';
           }
           if (!details.company || details.company === 'Unknown Company') {
-            details.company = 'LinkedIn';
+            details.company = activeScraper instanceof LinkedInScraper ? 'LinkedIn' : 'Indeed';
           }
 
           // Check if duplicate in storage

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JobFlow - Job Application Tracker",
   "description": "Automatically track your LinkedIn job applications locally and receive follow-up alerts.",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -19,6 +19,8 @@
   "host_permissions": [
     "https://www.linkedin.com/jobs/*",
     "https://www.linkedin.com/jobs/view/*",
+    "https://*.indeed.com/*",
+    "https://indeed.com/*",
     "http://localhost/*"
   ],
   "action": {
