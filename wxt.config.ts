@@ -50,7 +50,10 @@ export default defineConfig({
         browser_specific_settings: {
           gecko: {
             id: 'jobflow-tracker@ravi.dev',
-            strict_min_version: '109.0'
+            strict_min_version: '109.0',
+            data_collection_permissions: {
+              required: ['none']
+            }
           }
         }
       };
